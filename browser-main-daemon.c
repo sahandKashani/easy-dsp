@@ -1,16 +1,19 @@
-/*
-  The Main Daemon
-  gcc -o browser-main-daemon -lasound browser-main-daemon.c
-  ./browser-main-daemon
-*/
-
+#include <pthread.h>
+#include <pyramicio.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <alsa/asoundlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <pthread.h>
-#include <signal.h>
+
+#define VOLUME                     (100)
+#define NUM_CHANNELS               (48)
+#define AUDIO_FREQ_HZ              (48000)
+#define AUDIO_FORMAT_BITS          (16)
+#define HALF_BUFFER_LENGTH_SECONDS (1)
+#define HALF_BUFFER_SIZE_BYTES     (NUM_CHANNELS * AUDIO_FREQ_HZ * (AUDIO_FORMAT_BITS / 8) * HALF_BUFFER_LENGTH_SECONDS)
 
 void sig_handler(int signo)
 {
@@ -32,24 +35,23 @@ struct client* clients;
 pthread_t* audio_thread;
 
 // alsa parameters
-snd_pcm_t *capture_handle;
 int* buffer_frames;
 unsigned int* rate;
 int* volume;
 int* channels;
 
 
-main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
   buffer_frames = malloc(sizeof(*buffer_frames));
   rate = malloc(sizeof(*rate));
   channels = malloc(sizeof(*channels));
   volume = malloc(sizeof(*volume));
   audio_thread = malloc(sizeof(*audio_thread));
-  *buffer_frames = 256*30;
-  *rate = 44100;
-  *channels = 6;
-  *volume = 80;
+  *buffer_frames = HALF_BUFFER_SIZE_BYTES;
+  *rate = AUDIO_FREQ_HZ;
+  *channels = NUM_CHANNELS;
+  *volume = VOLUME;
   clients = NULL;
 
   // "catch" SIGPIPE we get when we try to send data to a disconnected client
@@ -82,144 +84,43 @@ main (int argc, char *argv[])
 
 void* handle_audio(void* nothing) {
 
-  int i, j;
-  int err;
-  char *buffer;
-  // int buffer_frames = 176400/10;
-  int buffer_size;
-  // unsigned int rate = 176400;
-  snd_pcm_hw_params_t *hw_params;
-	snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
-
-  if ((err = snd_pcm_open (&capture_handle, "hw:0", SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-    fprintf (stderr, "cannot open audio device %s (%s)\n",
-             "hw:0",
-             snd_strerror (err));
-    exit (1);
+  // 16-bit signed audio data
+  int16_t *buffer = (int16_t *) malloc(HALF_BUFFER_SIZE_BYTES);
+  if (buffer == NULL) {
+    fprintf(stdout, "Cannot allocate buffer %p (size: %d)\n", buffer, HALF_BUFFER_SIZE_BYTES);
+    exit(EXIT_FAILURE);
   }
 
-  fprintf(stdout, "audio interface opened\n");
+  fprintf(stdout, "buffer allocated %d\n", HALF_BUFFER_SIZE_BYTES);
 
-  if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
-    fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
-             snd_strerror (err));
-    exit (1);
+  struct pyramic *p = pyramicInitializePyramic();
+  if (p == NULL) {
+    fprintf(stderr, "pyramicInitializePyramic() failed\n");
+    exit(EXIT_FAILURE);
   }
 
-  fprintf(stdout, "hw_params allocated\n");
-
-  if ((err = snd_pcm_hw_params_any (capture_handle, hw_params)) < 0) {
-    fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
-             snd_strerror (err));
-    exit (1);
+  if (pyramicStartCapture(p, HALF_BUFFER_LENGTH_SECONDS) != 0) {
+    fprintf(stderr, "pyramicStartCapture() failed\n");
+    pyramicDeinitPyramic(p);
+    exit(EXIT_FAILURE);
   }
 
-  fprintf(stdout, "hw_params initialized\n");
+  // Note that the very first sample (when the daemon is switched on) will
+  // contain garbage. It is assumed that the time to start the daemon and launch
+  // a client is more than the size of an audio buffer in seconds.
+  while (true) {
+    // Get samples
+    uint8_t buffer_id_currently_writing = pyramicGetCurrentBufferHalf(p) - 1; // returns 0 or 1 (after the subtraction).
+    uint8_t buffer_id_currently_readable = buffer_id_currently_writing == 0 ? 1 : 0;
 
-  if ((err = snd_pcm_hw_params_set_access (capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-    fprintf (stderr, "cannot set access type (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
+    struct inputBuffer ib = pyramicGetInputBuffer(p, buffer_id_currently_readable);
+    memcpy(buffer, ib.samples, HALF_BUFFER_SIZE_BYTES);
 
-  fprintf(stdout, "hw_params access set\n");
-
-  if ((err = snd_pcm_hw_params_set_format (capture_handle, hw_params, format)) < 0) {
-    fprintf (stderr, "cannot set sample format (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
-
-  fprintf(stdout, "hw_params format set\n");
-
-  if ((err = snd_pcm_hw_params_set_rate_near (capture_handle, hw_params, rate, 0)) < 0) {
-    fprintf (stderr, "cannot set sample rate (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
-
-  fprintf(stdout, "hw_params rate set\n");
-
-  if ((err = snd_pcm_hw_params_set_channels (capture_handle, hw_params, *channels)) < 0) {
-    fprintf (stderr, "cannot set channel count (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
-
-  fprintf(stdout, "hw_params channels set\n");
-
-  if ((err = snd_pcm_hw_params (capture_handle, hw_params)) < 0) {
-    fprintf (stderr, "cannot set parameters (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
-
-  fprintf(stdout, "hw_params set\n");
-
-  snd_pcm_hw_params_free (hw_params);
-
-  fprintf(stdout, "hw_params freed\n");
-
-  if ((err = snd_pcm_prepare (capture_handle)) < 0) {
-    fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
-             snd_strerror (err));
-    exit (1);
-  }
-
-  fprintf(stdout, "audio interface prepared\n");
-
-  buffer_size = *buffer_frames * snd_pcm_format_width(format) / 8 * (*channels);
-  if ((buffer = (char*) malloc(buffer_size)) == NULL) {
-    fprintf(stdout, "Cannot allocate buffer %p (size: %d)\n", buffer, buffer_size);
-    exit(1);
-  }
-
-  fprintf(stdout, "buffer allocated %d\n", buffer_size);
-
-  long min, max;
-  snd_mixer_t *handle;
-  int iii;
-  snd_mixer_selem_id_t *sid;
-  const char *card = "default";
-  char *selem_name = malloc(3* sizeof(char));
-  snd_mixer_open(&handle, 0);
-  snd_mixer_attach(handle, card);
-  snd_mixer_selem_register(handle, NULL, NULL);
-  snd_mixer_load(handle);
-  snd_mixer_selem_id_alloca(&sid);
-  snd_mixer_selem_id_set_index(sid, 0);
-  for (iii = 1; iii <= 3; iii++) {
-    sprintf(selem_name, "Ch%d", iii);
-    snd_mixer_selem_id_set_name(sid, selem_name);
-    snd_mixer_elem_t* elem = snd_mixer_find_selem(handle, sid);
-    snd_mixer_selem_get_capture_volume_range(elem, &min, &max);
-    printf("Min max %d %d\n", min, max);
-    int ee = snd_mixer_selem_set_capture_volume_all(elem, (*volume) * (max - min) / 100);
-    printf("Error: %d\n", ee);
-    long vv;
-    snd_mixer_selem_get_capture_volume(elem, 1, &vv);
-    printf("New volume: %d\n", vv);
-    // snd_mixer_close(handle);
-  }
-
-  for (i = 0; i < 10000000; ++i) {
-    fprintf(stdout, "000 %d %d\n", i, *buffer_frames);
-    if ((err = snd_pcm_readi (capture_handle, buffer, *buffer_frames)) != *buffer_frames) {
-      fprintf (stderr, "read from audio interface failed (%s)\n",
-               err, snd_strerror (err));
-      exit (1);
-    }
-    // fprintf(stdout, "001\n");
-
-    // printf("Received %d %d %d %d\n", buffer[0], buffer[1], buffer[2], buffer[3]);
-    short* t = buffer;
-    // printf("Received %d %d %d\n", buffer[0], buffer[1], t[0]);
-    // fprintf(stdout, "read %d done\n", i);
-    struct client* c = clients;
-    struct client* previous = NULL;
+    // Send audio buffer to clients
+    struct client *c = clients;
+    struct client *previous = NULL;
     while (c != NULL) {
-      fprintf(stdout, "Send to client %d %d %d %d\n", buffer[0], buffer[1], buffer[2], buffer[3]);
-      int re = write((*c).addr, buffer, buffer_size);
+      int re = write((*c).addr, buffer, HALF_BUFFER_SIZE_BYTES);
       if (re == -1) {
         // This client is gone
         // We remove it
@@ -234,15 +135,11 @@ void* handle_audio(void* nothing) {
     }
   }
 
+  pyramicDeinitPyramic(p);
   free(buffer);
-
-  fprintf(stdout, "buffer freed\n");
-
-  snd_pcm_close (capture_handle);
-  fprintf(stdout, "audio interface closed\n");
 }
 
-void* handle_connections_control(void* nothing) {
+void *handle_connections_control(void* nothing) {
   const char *SOCKNAMEC = "/tmp/micros-control.socket";
   unlink(SOCKNAMEC);
   int sfd, t, s2;
@@ -253,7 +150,7 @@ void* handle_connections_control(void* nothing) {
   sfd = socket(AF_UNIX, SOCK_STREAM, 0);            /* Create socket */
   if (sfd == -1) {
     fprintf (stderr, "cannot create the socket control\n");
-    return;
+    return NULL;
   }
 
   memset(&addr, 0, sizeof(struct sockaddr_un));     /* Clear structure */
@@ -262,7 +159,7 @@ void* handle_connections_control(void* nothing) {
 
   if (bind(sfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == -1) {
     fprintf (stderr, "cannot bind the socket control\n");
-    return;
+    return NULL;
   }
 
   listen(sfd, 3);
@@ -281,10 +178,9 @@ void* handle_connections_control(void* nothing) {
     fprintf(stdout, "111\n");
     pthread_cancel(*audio_thread);
     fprintf(stdout, "222\n");
-    sleep(2);
-    snd_pcm_close (capture_handle);
+    sleep(2); // FIXME : this is NOT deterministic. Need to find a better way.
     fprintf(stdout, "333\n");
-    sleep(1);
+    sleep(1); // FIXME : this is NOT deterministic. Need to find a better way.
 
     *buffer_frames = config[0];
     *rate = config[1];
@@ -300,13 +196,13 @@ void* handle_connections_control(void* nothing) {
 
     if( pthread_create(audio_thread, NULL, handle_audio, NULL) < 0) {
         perror("could not create thread to handle audio ALSA");
-        return;
+        return NULL;
     }
 
   }
 }
 
-void* handle_connections_audio(void* nothing) {
+void *handle_connections_audio(void* nothing) {
   const char *SOCKNAME = "/tmp/micros-audio.socket";
   unlink(SOCKNAME);
   int sfd, t, s2;
@@ -317,7 +213,7 @@ void* handle_connections_audio(void* nothing) {
   sfd = socket(AF_UNIX, SOCK_STREAM, 0);            /* Create socket */
   if (sfd == -1) {
     fprintf (stderr, "cannot create the socket audio\n");
-    return;
+    return NULL;
   }
 
   memset(&addr, 0, sizeof(struct sockaddr_un));     /* Clear structure */
@@ -326,7 +222,7 @@ void* handle_connections_audio(void* nothing) {
 
   if (bind(sfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == -1) {
     fprintf (stderr, "cannot bind the socket\n");
-    return;
+    return NULL;
   }
 
   listen(sfd, 3);
