@@ -7,6 +7,7 @@
 #include <string.h>
 #include <jansson.h>
 #include <unistd.h>
+#include "browser-config.h"
 
 int
 onmessage(libwebsock_client_state *state, libwebsock_message *msg)
@@ -38,7 +39,7 @@ onmessage(libwebsock_client_state *state, libwebsock_message *msg)
 
   int s, len;
   struct sockaddr_un remote;
-  const char *SOCKNAME = "/tmp/micros-control.socket";
+  const char *SOCKNAME = EASY_DSP_CONTROL_SOCKET;
 
   if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
       perror("socket");
@@ -87,8 +88,8 @@ int main(void)
     fprintf(stderr, "Error during libwebsock_init.\n");
     exit(1);
   }
-  libwebsock_bind(ctx, "0.0.0.0", "7322");
-  fprintf(stdout, "libwebsock listening on port 7322\n");
+  libwebsock_bind(ctx, EASY_DSP_WSCONFIG_IP_ADDR, EASY_DSP_WSCONFIG_SERVER_PORT);
+  fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSCONFIG_SERVER_PORT "\n");
   ctx->onmessage = onmessage;
   ctx->onopen = onopen;
   ctx->onclose = onclose;

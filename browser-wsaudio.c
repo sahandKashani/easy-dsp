@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <unistd.h>
+#include "browser-config.h"
 
 void sig_handler(int signo)
 {
@@ -34,7 +35,7 @@ int main(void)
   char *buffer_temp;
   int buffer_pos = 0;
   int buffer_frames;
-  const char *SOCKNAME = "/tmp/micros-audio.socket";
+  const char *SOCKNAME = EASY_DSP_AUDIO_SOCKET;
   ws_clients = NULL;
   int config_size = sizeof(int) * 4;
   config = malloc(config_size);
@@ -203,8 +204,8 @@ void* main_ws(void* nothing) {
     fprintf(stderr, "Error during libwebsock_init.\n");
     exit(1);
   }
-  libwebsock_bind(ctx, "0.0.0.0", "7321");
-  fprintf(stdout, "libwebsock listening on port 7321\n");
+  libwebsock_bind(ctx, EASY_DSP_WSAUDIO_IP_ADDR, EASY_DSP_WSAUDIO_SERVER_PORT);
+  fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSAUDIO_SERVER_PORT "\n");
   ctx->onmessage = onmessage;
   ctx->onopen = onopen;
   ctx->onclose = onclose;

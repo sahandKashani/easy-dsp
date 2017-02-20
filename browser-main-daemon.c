@@ -8,14 +8,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include "browser-config.h"
 
-#define VOLUME                     (100)
-#define NUM_CHANNELS               (48)
-#define AUDIO_FREQ_HZ              (48000)
-#define AUDIO_FORMAT_BITS          (16)
-#define HALF_BUFFER_LENGTH_SECONDS (1)
-#define HALF_BUFFER_SIZE_BYTES     (NUM_CHANNELS * AUDIO_FREQ_HZ * (AUDIO_FORMAT_BITS / 8) * HALF_BUFFER_LENGTH_SECONDS)
-#define SLEEP_DURATION_US          ((uint32_t) (0.95 * HALF_BUFFER_LENGTH_SECONDS * 1000 * 1000))
+#define HALF_BUFFER_SIZE_BYTES (EASY_DSP_DEFAULT_NUM_CHANNELS * EASY_DSP_DEFAULT_AUDIO_FREQ_HZ * (EASY_DSP_DEFAULT_AUDIO_FORMAT_BITS / 8) * EASY_DSP_DEFAULT_HALF_BUFFER_LENGTH_SECONDS)
+#define SLEEP_DURATION_US      ((uint32_t) (0.95 * EASY_DSP_DEFAULT_HALF_BUFFER_LENGTH_SECONDS * 1000 * 1000))
 
 void sig_handler(int signo) {
     if (signo == SIGPIPE) {
@@ -49,9 +45,9 @@ int main (int argc, char *argv[]) {
     volume = malloc(sizeof(*volume));
     audio_thread = malloc(sizeof(*audio_thread));
     *buffer_frames = HALF_BUFFER_SIZE_BYTES;
-    *rate = AUDIO_FREQ_HZ;
-    *channels = NUM_CHANNELS;
-    *volume = VOLUME;
+    *rate = EASY_DSP_DEFAULT_AUDIO_FREQ_HZ;
+    *channels = EASY_DSP_DEFAULT_NUM_CHANNELS;
+    *volume = EASY_DSP_DEFAULT_VOLUME;
     clients = NULL;
 
     // "catch" SIGPIPE we get when we try to send data to a disconnected client
@@ -100,7 +96,7 @@ void* handle_audio(void* nothing) {
         exit(EXIT_FAILURE);
     }
 
-    if (pyramicStartCapture(p, HALF_BUFFER_LENGTH_SECONDS) != 0) {
+    if (pyramicStartCapture(p, EASY_DSP_DEFAULT_HALF_BUFFER_LENGTH_SECONDS) != 0) {
         fprintf(stderr, "pyramicStartCapture() failed\n");
         pyramicDeinitPyramic(p);
         exit(EXIT_FAILURE);
@@ -145,7 +141,7 @@ void* handle_audio(void* nothing) {
 }
 
 void *handle_connections_control(void* nothing) {
-    const char *SOCKNAMEC = "/tmp/micros-control.socket";
+    const char *SOCKNAMEC = EASY_DSP_CONTROL_SOCKET;
     unlink(SOCKNAMEC);
     int sfd, t, s2;
     struct sockaddr_un addr, remote;
@@ -204,7 +200,7 @@ void *handle_connections_control(void* nothing) {
 }
 
 void *handle_connections_audio(void* nothing) {
-    const char *SOCKNAME = "/tmp/micros-audio.socket";
+    const char *SOCKNAME = EASY_DSP_AUDIO_SOCKET;
     unlink(SOCKNAME);
     int sfd, t, s2;
     struct sockaddr_un addr, remote;
