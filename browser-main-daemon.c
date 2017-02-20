@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #define VOLUME                     (100)
 #define NUM_CHANNELS               (48)
@@ -76,8 +77,11 @@ int main (int argc, char *argv[])
       return 1;
   }
 
-  while (1) {
-  }
+    while (true) {
+        // Sleep for a long time to not take CPU cycles. ANY constant could work
+        // here.
+        sleep(10);
+    }
 
   exit (0);
 }
