@@ -9,208 +9,192 @@
 #include <unistd.h>
 #include "browser-config.h"
 
-void sig_handler(int signo)
-{
-  if (signo == SIGPIPE) {
-    fprintf(stdout, "received SIGPIPE\n");
-  }
+void sig_handler(int signo) {
+    if (signo == SIGPIPE) {
+        fprintf(stdout, "received SIGPIPE\n");
+    }
 }
 
-void* main_ws(void* nothing);
-int* config;
-void* send_config(libwebsock_client_state *state);
+void *main_ws(void *nothing);
+int *config;
+void *send_config(libwebsock_client_state *state);
 
 struct ws_client {
-  libwebsock_client_state* c;
-  struct ws_client* next;
+    libwebsock_client_state *c;
+    struct ws_client *next;
 };
 
 struct ws_client* ws_clients;
 pthread_mutex_t ws_client_lock;
 
-int main(void)
-{
-  int s, t, len;
-  struct sockaddr_un remote;
-  char *buffer;
-  char *buffer_temp;
-  int buffer_pos = 0;
-  int buffer_frames;
-  const char *SOCKNAME = EASY_DSP_AUDIO_SOCKET;
-  ws_clients = NULL;
-  int config_size = sizeof(int) * 4;
-  config = malloc(config_size);
+int main(void) {
+    ws_clients = NULL;
 
-  if (signal(SIGPIPE, sig_handler) == SIG_ERR) {
-    printf("\ncan't catch SIGPIPE\n");
-  }
+    if (signal(SIGPIPE, sig_handler) == SIG_ERR) {
+        fprintf(stderr, "Can't catch SIGPIPE\n");
+        exit(EXIT_FAILURE);
+    }
 
-  pthread_t main_ws_thread;
+    pthread_t main_ws_thread;
 
-  if( pthread_create(&main_ws_thread, NULL, main_ws, NULL) < 0) {
-      perror("could not create thread for main websocket loop");
-      exit(EXIT_FAILURE);
-  }
+    if (pthread_create(&main_ws_thread, NULL, main_ws, NULL) < 0) {
+        fprintf(stderr, "Could not create thread for main websocket loop\n");
+        exit(EXIT_FAILURE);
+    }
 
-  if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-      perror("socket");
-      exit(EXIT_FAILURE);
-  }
+    int s = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (s  == -1) {
+        fprintf(stderr, "Could not create socket\n");
+        exit(EXIT_FAILURE);
+    }
 
-  printf("Trying to connect...\n");
+    printf("Trying to connect...\n");
 
-  remote.sun_family = AF_UNIX;
-  strcpy(remote.sun_path, SOCKNAME);
-  len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-  if (connect(s, (struct sockaddr *)&remote, len) == -1) {
-      perror("connect");
-      while (true) {
+    const char *SOCKNAME = EASY_DSP_AUDIO_SOCKET;
+    struct sockaddr_un remote;
+    remote.sun_family = AF_UNIX;
+    strcpy(remote.sun_path, SOCKNAME);
+    int len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+    if (connect(s, (struct sockaddr *)&remote, len) == -1) {
+        fprintf(stderr, "Could not connect to socket\n");
+        exit(EXIT_FAILURE);
+    }
 
-      }
-      exit(EXIT_FAILURE);
-  }
+    printf("Connected.\n");
 
-  printf("Connected.\n");
+    struct ws_client* c;
+    void *buffer = malloc(EASY_DSP_HALF_BUFFER_SIZE_BYTES);
 
-  // First message is the config
-  recv(s, config, config_size, 0);
-  buffer_frames = config[0]*config[2]*2;
+    while (true) {
+        // Wait until we receive EASY_DSP_HALF_BUFFER_SIZE_BYTES bytes in total.
+        int32_t msg_len_bytes = 0;
+        int32_t bytes_left_to_receive = EASY_DSP_HALF_BUFFER_SIZE_BYTES;
+        do {
+            void *dst = ((uint8_t *) buffer) + msg_len_bytes;
 
-  buffer = malloc(buffer_frames);
-  buffer_temp = malloc(buffer_frames);
-  struct ws_client* c;
+            int32_t re = recv(s, dst, bytes_left_to_receive, 0);
+            if (re >= 0) {
+                msg_len_bytes += re;
+                bytes_left_to_receive -= re;
+            } else {
+                fprintf(stderr, "Server closed connection\n");
+                close(s);
+                free(buffer);
+                return EXIT_SUCCESS;
+            }
+        } while (bytes_left_to_receive > 0);
 
-  while (true) {
-    // printf("ok\n");
-    if ((t=recv(s, buffer_temp, buffer_frames, 0)) > 0) {
-      if (t == config_size) {
-        // printf("New config\n");
-        int* temp = (int*) buffer_temp;
-        config[0] = temp[0];
-        config[1] = temp[1];
-        config[2] = temp[2];
-        config[3] = temp[3];
-        buffer_frames = config[0]*config[2]*2;
-        // printf("New config %d %d %d %d\n", config[0], config[1], config[2], config[3]);
-        free(buffer);
-        free(buffer_temp);
-        buffer = malloc(buffer_frames);
-        buffer_temp = malloc(buffer_frames);
-        buffer_pos = 0;
+        fprintf(stdout, "sending to clients\n");
+
+        // Send complete buffer to clients.
+        struct ws_client* previous = NULL;
+        pthread_mutex_lock(&ws_client_lock);
+
         for (c = ws_clients; c != NULL; c = c->next) {
-          send_config(c->c);
+            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_HALF_BUFFER_SIZE_BYTES);
+            if (re == -1) {
+                if (previous == NULL) {
+                    ws_clients = c->next;
+                } else {
+                    previous->next = c->next;
+                }
+            } else {
+                previous = c;
+            }
         }
-        continue;
-      }
-      // printf("%d %d %d", buffer_pos, t, buffer_frames);
-      // We must fill completly buffer with buffer_frames length before sending it
-      memcpy((buffer + buffer_pos), buffer_temp, t);
-      if ((buffer_pos + t) < buffer_frames) {
-        buffer_pos += t;
-        continue;
-      }
-      buffer_pos = 0;
-      // printf("ok2\n");
-      struct ws_client* previous = NULL;
-      pthread_mutex_lock(&ws_client_lock);
-      for (c = ws_clients; c != NULL; c = c->next) {
-        // printf("ici\n");
-        int re = libwebsock_send_binary(c->c, buffer, buffer_frames);
-        if (re == -1) {
-          if (previous == NULL) {
-            ws_clients = c->next;
-          } else {
-            previous->next = c->next;
-          }
-        } else {
-          previous = c;
+
+        // // debug write to file
+        // FILE *pFile = fopen("/var/easy-dsp/garbage.bin","a");
+        // if (pFile){
+        //     fwrite(buffer, EASY_DSP_HALF_BUFFER_SIZE_BYTES, 1, pFile);
+        //     puts("Wrote to file!");
+        // }
+        // else{
+        //     puts("Something wrong writing to File.");
+        // }
+        // fclose(pFile);
+
+        pthread_mutex_unlock(&ws_client_lock);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int onmessage(libwebsock_client_state *state, libwebsock_message *msg) {
+    fprintf(stdout, "Received message from client: %d\n", state->sockfd);
+    fprintf(stdout, "Message opcode: %d\n", msg->opcode);
+    fprintf(stdout, "Payload Length: %llu\n", msg->payload_len);
+    fprintf(stdout, "Payload: %s\n", msg->payload);
+
+    //now let's send it back.
+    libwebsock_send_text(state, msg->payload);
+
+    return 0;
+}
+
+int onopen(libwebsock_client_state *state) {
+    send_config(state);
+    struct ws_client* new_client = malloc(sizeof(struct ws_client));
+    new_client->next = ws_clients;
+    new_client->c = state;
+    ws_clients = new_client;
+    return 0;
+}
+
+void *send_config(libwebsock_client_state *state) {
+    char conf[100];
+
+    sprintf(conf,
+            "{\"buffer_frames\":%d,\"rate\":%d,\"channels\":%d,\"volume\":%d}",
+            EASY_DSP_HALF_BUFFER_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
+            EASY_DSP_AUDIO_FREQ_HZ,
+            EASY_DSP_NUM_CHANNELS,
+            EASY_DSP_VOLUME);
+
+    libwebsock_send_text(state, conf);
+
+    return NULL;
+}
+
+int onclose(libwebsock_client_state *state) {
+    pthread_mutex_lock(&ws_client_lock);
+    struct ws_client* c;
+    struct ws_client* previous = NULL;
+
+    for (c = ws_clients; c != NULL; c = c->next) {
+        if (c->c == state) {
+            break;
         }
-      }
-      pthread_mutex_unlock(&ws_client_lock);
-      // printf("%d bytes received %d %d\n", t, buffer[0], buffer[1]);
+        previous = c;
+    }
+
+    if (previous == NULL) {
+        ws_clients = c->next;
     } else {
-      if (t < 0) perror("recv");
-      else printf("Server closed connection\n");
-      break;
+        previous->next = c->next;
     }
-  }
 
-  close(s);
+    pthread_mutex_unlock(&ws_client_lock);
+    fprintf(stderr, "onclose: %d\n", state->sockfd);
 
-  return EXIT_SUCCESS;
+    return 0;
 }
 
-int
-onmessage(libwebsock_client_state *state, libwebsock_message *msg)
-{
-  fprintf(stderr, "Received message from client: %d\n", state->sockfd);
-  fprintf(stderr, "Message opcode: %d\n", msg->opcode);
-  fprintf(stderr, "Payload Length: %llu\n", msg->payload_len);
-  fprintf(stderr, "Payload: %s\n", msg->payload);
-  //now let's send it back.
-  libwebsock_send_text(state, msg->payload);
-  return 0;
-}
+void *main_ws(void* nothing) {
+    libwebsock_context *ctx = NULL;
+    ctx = libwebsock_init();
 
-int
-onopen(libwebsock_client_state *state)
-{
-  // printf("open\n");
-  send_config(state);
-  struct ws_client* new_client = malloc(sizeof(struct ws_client));
-  new_client->next = ws_clients;
-  new_client->c = state;
-  ws_clients = new_client;
-  fprintf(stderr, "onopen: %d\n", state->sockfd);
-  return 0;
-}
-
-void*
-send_config(libwebsock_client_state *state)
-{
-  char conf[100];
-  char* c = conf;
-  sprintf(conf, "{\"buffer_frames\":%d,\"rate\":%d,\"channels\":%d,\"volume\":%d}", config[0], config[1], config[2], config[3]);
-  libwebsock_send_text(state, c);
-
-  return NULL;
-}
-
-int
-onclose(libwebsock_client_state *state)
-{
-  pthread_mutex_lock(&ws_client_lock);
-  struct ws_client* c;
-  struct ws_client* previous = NULL;
-  for (c = ws_clients; c != NULL; c = c->next) {
-    if (c->c == state) {
-      break;
+    if(ctx == NULL) {
+        fprintf(stderr, "Error during libwebsock_init.\n");
+        exit(EXIT_FAILURE);
     }
-    previous = c;
-  }
-  if (previous == NULL) {
-    ws_clients = c->next;
-  } else {
-    previous->next = c->next;
-  }
-  pthread_mutex_unlock(&ws_client_lock);
-  fprintf(stderr, "onclose: %d\n", state->sockfd);
-  return 0;
-}
 
-void* main_ws(void* nothing) {
-  libwebsock_context *ctx = NULL;
-  ctx = libwebsock_init();
-  if(ctx == NULL) {
-    fprintf(stderr, "Error during libwebsock_init.\n");
-    exit(EXIT_FAILURE);
-  }
-  libwebsock_bind(ctx, EASY_DSP_WSAUDIO_IP_ADDR, EASY_DSP_WSAUDIO_SERVER_PORT);
-  fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSAUDIO_SERVER_PORT "\n");
-  ctx->onmessage = onmessage;
-  ctx->onopen = onopen;
-  ctx->onclose = onclose;
-  libwebsock_wait(ctx);
+    libwebsock_bind(ctx, EASY_DSP_WSAUDIO_IP_ADDR, EASY_DSP_WSAUDIO_SERVER_PORT);
+    fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSAUDIO_SERVER_PORT "\n");
+    ctx->onmessage = onmessage;
+    ctx->onopen = onopen;
+    ctx->onclose = onclose;
+    libwebsock_wait(ctx);
 
-  return NULL;
+    return NULL;
 }
