@@ -143,7 +143,7 @@ void* handle_audio(void* nothing) {
 void *handle_connections_control(void* nothing) {
     const char *SOCKNAMEC = EASY_DSP_CONTROL_SOCKET;
     unlink(SOCKNAMEC);
-    int sfd, t, s2;
+    int sfd, s2;
     struct sockaddr_un addr, remote;
     int config[4];
     int* c = config;
@@ -167,7 +167,7 @@ void *handle_connections_control(void* nothing) {
     fprintf(stdout, "Bind successful control\n");
     while (true) {
         fprintf(stdout, "Waiting for a connection...\n");
-        t = sizeof(remote);
+        socklen_t t = sizeof(remote);
         if ((s2 = accept(sfd, (struct sockaddr *)&remote, &t)) == -1) {
             fprintf (stderr, "Cannot accept the connection control\n");
             continue;
@@ -202,7 +202,7 @@ void *handle_connections_control(void* nothing) {
 void *handle_connections_audio(void* nothing) {
     const char *SOCKNAME = EASY_DSP_AUDIO_SOCKET;
     unlink(SOCKNAME);
-    int sfd, t, s2;
+    int sfd, s2;
     struct sockaddr_un addr, remote;
     int config[4];
     int* c = config;
@@ -226,7 +226,7 @@ void *handle_connections_audio(void* nothing) {
     fprintf(stdout, "Bind successful audio\n");
     while (true) {
         fprintf(stdout, "Waiting for a connection...\n");
-        t = sizeof(remote);
+        socklen_t t = sizeof(remote);
         if ((s2 = accept(sfd, (struct sockaddr *)&remote, &t)) == -1) {
             fprintf(stderr, "Cannot accept the connection audio\n");
             continue;
