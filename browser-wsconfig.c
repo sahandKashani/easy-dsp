@@ -43,7 +43,7 @@ onmessage(libwebsock_client_state *state, libwebsock_message *msg)
 
   if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
       perror("socket");
-      exit(1);
+      exit(EXIT_FAILURE);
   }
 
   printf("Trying to connect...\n");
@@ -53,7 +53,7 @@ onmessage(libwebsock_client_state *state, libwebsock_message *msg)
   len = strlen(remote.sun_path) + sizeof(remote.sun_family);
   if (connect(s, (struct sockaddr *)&remote, len) == -1) {
       perror("connect");
-      exit(1);
+      exit(EXIT_FAILURE);
   }
 
   printf("Connected.\n");
@@ -86,7 +86,7 @@ int main(void)
   ctx = libwebsock_init();
   if(ctx == NULL) {
     fprintf(stderr, "Error during libwebsock_init.\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   libwebsock_bind(ctx, EASY_DSP_WSCONFIG_IP_ADDR, EASY_DSP_WSCONFIG_SERVER_PORT);
   fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSCONFIG_SERVER_PORT "\n");
@@ -94,5 +94,5 @@ int main(void)
   ctx->onopen = onopen;
   ctx->onclose = onclose;
   libwebsock_wait(ctx);
-  return 0;
+  return EXIT_SUCCESS;
 }

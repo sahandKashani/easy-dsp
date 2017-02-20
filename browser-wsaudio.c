@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdio.h>
@@ -48,12 +49,12 @@ int main(void)
 
   if( pthread_create(&main_ws_thread, NULL, main_ws, NULL) < 0) {
       perror("could not create thread for main websocket loop");
-      return 1;
+      exit(EXIT_FAILURE);
   }
 
   if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
       perror("socket");
-      exit(1);
+      exit(EXIT_FAILURE);
   }
 
   printf("Trying to connect...\n");
@@ -63,10 +64,10 @@ int main(void)
   len = strlen(remote.sun_path) + sizeof(remote.sun_family);
   if (connect(s, (struct sockaddr *)&remote, len) == -1) {
       perror("connect");
-      while(1) {
+      while (true) {
 
       }
-      exit(1);
+      exit(EXIT_FAILURE);
   }
 
   printf("Connected.\n");
@@ -79,7 +80,7 @@ int main(void)
   buffer_temp = malloc(buffer_frames);
   struct ws_client* c;
 
-  while(1) {
+  while (true) {
     // printf("ok\n");
     if ((t=recv(s, buffer_temp, buffer_frames, 0)) > 0) {
       if (t == config_size) {
@@ -136,7 +137,7 @@ int main(void)
 
   close(s);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
 
 int
@@ -202,7 +203,7 @@ void* main_ws(void* nothing) {
   ctx = libwebsock_init();
   if(ctx == NULL) {
     fprintf(stderr, "Error during libwebsock_init.\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   libwebsock_bind(ctx, EASY_DSP_WSAUDIO_IP_ADDR, EASY_DSP_WSAUDIO_SERVER_PORT);
   fprintf(stdout, "libwebsock listening on port " EASY_DSP_WSAUDIO_SERVER_PORT "\n");
