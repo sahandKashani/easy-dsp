@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <pthread.h>
 #include <pyramicio.h>
 #include <signal.h>
@@ -5,10 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include "browser-config.h"
 
-#define SLEEP_DURATION_US           ((uint32_t) (0.95 * EASY_DSP_HALF_BUFFER_LENGTH_SECONDS * 1000 * 1000))
+#define SLEEP_DURATION_US           ((uint32_t) (0.1 * EASY_DSP_AUDIO_BUFFER_LENGTH_MS * 1000))
 #define SLEEP_DURATION_IDLE_SECONDS (10) // Any constant would work here.
 
 void sig_handler(int signo) {
@@ -64,12 +66,17 @@ int main (int argc, char *argv[]) {
   exit(EXIT_SUCCESS);
 }
 
+void print_elapsed_time(struct timeval t1, struct timeval t2) {
+    double elapsed_time = (t2.tv_sec - t1.tv_sec) * 1000.0; // sec to ms
+    elapsed_time += (t2.tv_usec - t1.tv_usec) / 1000.0;
+    fprintf(stdout, "elapsed_time = %f ms\n", elapsed_time);
+}
+
 void *handle_audio(void *nothing) {
-    // 16-bit signed audio data
-    void *buffer = malloc(EASY_DSP_HALF_BUFFER_SIZE_BYTES);
+    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
     if (buffer == NULL) {
-        fprintf(stderr, "Cannot allocate buffer %p (size: %d)\n", buffer, EASY_DSP_HALF_BUFFER_SIZE_BYTES);
+        fprintf(stderr, "Cannot allocate buffer %p (size: %d)\n", buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
         exit(EXIT_FAILURE);
     }
 
@@ -79,34 +86,38 @@ void *handle_audio(void *nothing) {
         exit(EXIT_FAILURE);
     }
 
-    if (pyramicStartCapture(p, EASY_DSP_HALF_BUFFER_LENGTH_SECONDS) != 0) {
+    // Multiply by 2 because the pyramic uses a double buffering technique. If
+    // we want to receive EASY_DSP_AUDIO_BUFFER_LENGTH_MS milliseconds of audio
+    // RELIABLY, then we need to allocate double the buffer size.
+    if (pyramicStartCapture(p, 2 * EASY_DSP_AUDIO_BUFFER_LENGTH_MS) != 0) {
         fprintf(stderr, "pyramicStartCapture() failed\n");
         pyramicDeinitPyramic(p);
         exit(EXIT_FAILURE);
     }
 
-    uint8_t previous_buffer_id = pyramicGetCurrentBufferHalf(p) - 1; // returns 0 or 1 (after the subtraction).
+    // double-buffered sound acquisition
+    uint8_t buffer_id_write = pyramicGetCurrentBufferHalf(p) - 1; // returns 0 or 1 (after the subtraction).
+    uint8_t buffer_id_read = !buffer_id_write;
+
     while (true) {
-        // Do not reread the same buffer as in the previous iteration. Always
-        // wait until a new buffer is available.
-        while(pyramicGetCurrentBufferHalf(p) - 1 == previous_buffer_id) {
+        // Wait until write buffer is completely filled.
+        while(pyramicGetCurrentBufferHalf(p) - 1 == buffer_id_write) {
             usleep(SLEEP_DURATION_US);
         }
 
-        uint8_t buffer_id_currently_writing = pyramicGetCurrentBufferHalf(p) - 1;
-        uint8_t buffer_id_currently_readable = buffer_id_currently_writing == 0 ? 1 : 0;
-        previous_buffer_id = buffer_id_currently_writing;
+        // swap write and read buffers
+        buffer_id_write = !buffer_id_write;
+        buffer_id_read = !buffer_id_read;
 
-        // Get samples
-        struct inputBuffer ib = pyramicGetInputBuffer(p, buffer_id_currently_readable);
+        // Get samples from read buffer
+        struct inputBuffer ib = pyramicGetInputBuffer(p, buffer_id_read);
 
-        // Send audio buffer to clients
+        // Send samples to clients
         struct client *c = clients;
         struct client *previous = NULL;
-        while (c != NULL) {
-            int re = write((*c).addr, ib.samples, EASY_DSP_HALF_BUFFER_SIZE_BYTES);
 
-            fprintf(stdout, "re = %d\n", re);
+        while (c != NULL) {
+            ssize_t re = write((*c).addr, ib.samples, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
             if (re == -1) {
                 // This client is gone, so we remove it.

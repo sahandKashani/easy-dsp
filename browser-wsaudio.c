@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -63,16 +64,16 @@ int main(void) {
     printf("Connected.\n");
 
     struct ws_client* c;
-    void *buffer = malloc(EASY_DSP_HALF_BUFFER_SIZE_BYTES);
+    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
     while (true) {
-        // Wait until we receive EASY_DSP_HALF_BUFFER_SIZE_BYTES bytes in total.
+        // Wait until we receive EASY_DSP_AUDIO_BUFFER_SIZE_BYTES bytes in total.
         int32_t msg_len_bytes = 0;
-        int32_t bytes_left_to_receive = EASY_DSP_HALF_BUFFER_SIZE_BYTES;
+        int32_t bytes_left_to_receive = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES;
         do {
             void *dst = ((uint8_t *) buffer) + msg_len_bytes;
 
-            int32_t re = recv(s, dst, bytes_left_to_receive, 0);
+            ssize_t re = recv(s, dst, bytes_left_to_receive, 0);
             if (re >= 0) {
                 msg_len_bytes += re;
                 bytes_left_to_receive -= re;
@@ -84,14 +85,12 @@ int main(void) {
             }
         } while (bytes_left_to_receive > 0);
 
-        fprintf(stdout, "sending to clients\n");
-
         // Send complete buffer to clients.
         struct ws_client* previous = NULL;
         pthread_mutex_lock(&ws_client_lock);
 
         for (c = ws_clients; c != NULL; c = c->next) {
-            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_HALF_BUFFER_SIZE_BYTES);
+            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
             if (re == -1) {
                 if (previous == NULL) {
                     ws_clients = c->next;
@@ -106,7 +105,7 @@ int main(void) {
         // // debug write to file
         // FILE *pFile = fopen("/var/easy-dsp/garbage.bin","a");
         // if (pFile){
-        //     fwrite(buffer, EASY_DSP_HALF_BUFFER_SIZE_BYTES, 1, pFile);
+        //     fwrite(buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES, 1, pFile);
         //     puts("Wrote to file!");
         // }
         // else{
@@ -146,7 +145,7 @@ void *send_config(libwebsock_client_state *state) {
 
     sprintf(conf,
             "{\"buffer_frames\":%d,\"rate\":%d,\"channels\":%d,\"volume\":%d}",
-            EASY_DSP_HALF_BUFFER_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
+            EASY_DSP_AUDIO_BUFFER_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
             EASY_DSP_AUDIO_FREQ_HZ,
             EASY_DSP_NUM_CHANNELS,
             EASY_DSP_VOLUME);
