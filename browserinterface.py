@@ -1,21 +1,21 @@
-#!/usr/local/bin/python
+from __future__ import print_function
+
+import datetime
+import json
+import numpy as np
+import os
+import socket
+import sys
+from Queue import Queue
+from threading import Thread
+from wsgiref.simple_server import make_server
 
 from ws4py.client.threadedclient import WebSocketClient
-from wsgiref.simple_server import make_server
-from ws4py.websocket import WebSocket
 from ws4py.server.wsgirefserver import WSGIServer, WebSocketWSGIRequestHandler
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
-from threading import Thread
-from Queue import Queue
-import os
-import json
-import sys
-import socket
-import json
-import datetime
-import numpy as np
+from ws4py.websocket import WebSocket
 
-bi_board_ip = '192.168.7.2'
+board_ip = '192.168.7.2'
 
 # Buffer for audio reception
 bi_buffer = 0
@@ -43,9 +43,11 @@ volume = 80
 handle_data = 0
 when_new_config = 0
 
+
 def register_handle_data(fn):
     global handle_data
     handle_data = fn
+
 
 def register_when_new_config(fn):
     global when_new_config
@@ -55,12 +57,14 @@ def register_when_new_config(fn):
 # Current data handler id
 r_id = 0
 
+
 class DataHandler():
     def __init__(self, id):
         self.id = id
 
     def send_data(self, data):
         r_messages.put(json.dumps({'dataHandler': self.id, 'data': data}))
+
 
 # name: name of the graph
 # type: type of the graphs: 'base:graph:area', 'base:graph:line', 'base:graph:bar', 'base:graph:scatterplot'
@@ -82,22 +86,26 @@ bi_audio_number = 0
 # Audio recordings
 bi_recordings = []
 
+
 # duration in ms
 def record_audio(duration, callback):
     global bi_recordings
-    bi_recordings.append({'duration': duration, 'callback': callback, 'buffer': np.empty([0, channels], dtype=np.int16), 'ended': False})
+    bi_recordings.append(
+        {'duration': duration, 'callback': callback, 'buffer': np.empty([0, channels], dtype=np.int16), 'ended': False})
+
 
 # This method goes through all recordings, and send those which must have finished
 def handle_recordings():
     global bi_recordings, r_calls
     for i in reversed(range(len(bi_recordings))):
         recording = bi_recordings[i]
-        audio_duration = len(recording['buffer'])*1000/rate
+        audio_duration = len(recording['buffer']) * 1000 / rate
         if audio_duration >= recording['duration']:
             recording['ended'] = True
-            r_calls.put((recording['callback'], (recording['buffer'], )))
+            r_calls.put((recording['callback'], (recording['buffer'],)))
             # recording['callback'](recording['buffer'])
             del bi_recordings[i]
+
 
 def measure_latency(cb, params):
     global bi_audio_start, bi_audio_number
@@ -106,14 +114,15 @@ def measure_latency(cb, params):
         bi_audio_start = datetime.datetime.now()
 
     time_diff = datetime.datetime.now() - bi_audio_start
-    time_elapsed = time_diff.total_seconds()*1000 # in milliseconds
-    audio_received = bi_audio_number*buffer_frames*1000/rate
+    time_elapsed = time_diff.total_seconds() * 1000  # in milliseconds
+    audio_received = bi_audio_number * buffer_frames * 1000 / rate
     audio_delay = time_elapsed - audio_received
     r_messages.put(json.dumps({'latency': audio_delay}))
     bi_audio_number += 1
 
     # We call the callback
     cb(*params)
+
 
 # Connection with WSAudio
 class StreamClient(WebSocketClient):
@@ -123,7 +132,7 @@ class StreamClient(WebSocketClient):
         global bi_recordings
         global bi_buffer
         global r_calls
-        if not m.is_binary: # new configuration
+        if not m.is_binary:  # new configuration
             global rate
             global channels
             global buffer_frames
@@ -144,20 +153,20 @@ class StreamClient(WebSocketClient):
 
             if when_new_config != 0:
                 r_calls.put((when_new_config, (buffer_frames, rate, channels, volume)))
-        else: # new audio data
+        else:  # new audio data
             # We convert the binary stream into a 2D Numpy array of 16-bits integers
             data = bytearray()
             data.extend(m.data)
             i = 0
             i_frame = 0
             i_channel = 0
-            for i in range(len(data) / 2): # we work with 16 bits = 2 bytes
-                if data[2*i+1] <= 127:
-                    bi_buffer[i_frame][i_channel] = data[2*i] + 256*data[2*i+1]
+            for i in range(len(data) / 2):  # we work with 16 bits = 2 bytes
+                if data[2 * i + 1] <= 127:
+                    bi_buffer[i_frame][i_channel] = data[2 * i] + 256 * data[2 * i + 1]
                 else:
-                    bi_buffer[i_frame][i_channel] = (data[2*i+1]-128)*256 + data[2*i] - 32768
+                    bi_buffer[i_frame][i_channel] = (data[2 * i + 1] - 128) * 256 + data[2 * i] - 32768
                 i_channel += 1
-                if (i % channels) == (channels-1):
+                if (i % channels) == (channels - 1):
                     i_channel = 0
                     i_frame += 1
 
@@ -169,7 +178,8 @@ class StreamClient(WebSocketClient):
 
             # We call the potential callback
             if handle_data != 0:
-                r_calls.put((measure_latency, (handle_data, (bi_buffer, ))))
+                r_calls.put((measure_latency, (handle_data, (bi_buffer,))))
+
 
 # Send a new audio buffer to the browser
 def send_audio(buffer):
@@ -181,19 +191,20 @@ def send_audio(buffer):
             for buf in buffer:
                 for b in buf:
                     if b >= 0:
-                        nbuffer.append(min(b%256, 255))
-                        nbuffer.append(min(b/256, 255))
+                        nbuffer.append(min(b % 256, 255))
+                        nbuffer.append(min(b / 256, 255))
                     else:
                         t = max(0, 32768 + b)
-                        nbuffer.append(min(t%256, 255))
-                        nbuffer.append(min(t/256 + 128, 255))
+                        nbuffer.append(min(t % 256, 255))
+                        nbuffer.append(min(t / 256 + 128, 255))
             client.send(bytearray(nbuffer), True)
         except socket.error, e:
-            print "Error when send_audio: the browser might be disconnected, we remove it"
+            print("Error when send_audio: the browser might be disconnected, we remove it")
             client = -1
         except IOError, e:
-            print "Error when send_audio: the browser might be disconnected, we remove it"
+            print("Error when send_audio: the browser might be disconnected, we remove it")
             client = -1
+
 
 # Change the configuration (WSConfig)
 def change_config(rate=None, channels=None, buffer_frames=None, volume=None):
@@ -208,10 +219,11 @@ def change_config(rate=None, channels=None, buffer_frames=None, volume=None):
 
     class WSConfigClient(WebSocketClient):
         def opened(self):
-            self.send(json.dumps({'rate': rate, 'channels': channels, 'buffer_frames': buffer_frames, 'volume': volume}))
+            self.send(
+                json.dumps({'rate': rate, 'channels': channels, 'buffer_frames': buffer_frames, 'volume': volume}))
             self.close()
 
-    change_config_q = WSConfigClient('ws://' + bi_board_ip + ':7322/', protocols=['http-only', 'chat'])
+    change_config_q = WSConfigClient('ws://' + board_ip + ':7322/', protocols=['http-only', 'chat'])
     change_config_q.connect()
 
 
@@ -232,6 +244,7 @@ class WSServer(WebSocket):
         client = -1
         os._exit(1)
 
+
 # WebSocket server, to which the browser can connect
 def start_server(port):
     global server
@@ -241,6 +254,7 @@ def start_server(port):
     server.initialize_websockets_manager()
     server.serve_forever()
 
+
 # In case of standlone, we will informe the python daemon (code-server) that we exist
 # so it can forward this information to the browser, which will then connect to us
 class PythonDaemonClient(WebSocketClient):
@@ -248,9 +262,9 @@ class PythonDaemonClient(WebSocketClient):
         self.send(json.dumps({'script': 9001}))
 
     def received_message(self, message):
-        global bi_board_ip
+        global board_ip
         # We should receive the IP address of the board
-        bi_board_ip = message.data
+        board_ip = message.data
         self.close()
         start_client_thread()
 
@@ -259,20 +273,22 @@ def inform_browser_query():
     python_daemon = PythonDaemonClient('ws://127.0.0.1:7320/', protocols=['http-only', 'chat'])
     python_daemon.connect()
 
+
 # Connection to WSAudio
 def start_client():
-    ws = StreamClient('ws://' + bi_board_ip + ':7321/', protocols=['http-only', 'chat'])
+    ws = StreamClient('ws://' + board_ip + ':7321/', protocols=['http-only', 'chat'])
     ws.connect()
-
     ws.run_forever()
 
+
 def start_client_thread():
-    clientThread = Thread(target = start_client)
+    clientThread = Thread(target=start_client)
     clientThread.daemon = True
     clientThread.start()
 
+
 def start():
-    serverThread = Thread(target = start_server, args = (9001, ))
+    serverThread = Thread(target=start_server, args=(9001,))
     serverThread.daemon = True
     serverThread.start()
 
@@ -280,6 +296,7 @@ def start():
         inform_browser_query()
     else:
         start_client_thread()
+
 
 def loop_callbacks():
     global r_calls
