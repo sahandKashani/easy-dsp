@@ -83,7 +83,7 @@ pushd jansson-2.9
 ################################################################################
 
 cd /var
-sudo git clone https://github.com/sahandKashani/easy-dsp.git
+sudo git clone git@github.com:sahandKashani/easy-dsp.git
 cd easy-dsp
 sudo touch logs.txt
 sudo chown www-data:www-data logs.txt
