@@ -46,8 +46,12 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}":/usr/local/lib
 ## Apache and PHP
 sudo apt install apache2 libapache2-mod-php5 php5 php5-common
 
+
+## Install more stuff related to system:
+sudo apt install sshfs valgrind ethtool
+
 ## libevent
-sudo apt install libevent-dev
+sudo apt install libevent-dev libevent-openssl-2.0.5
 
 ## OpenSSL
 sudo apt install libssl-dev
