@@ -47,15 +47,7 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}":/usr/local/lib
 sudo apt install apache2 libapache2-mod-php5 php5 php5-common
 
 ## libevent
-wget https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz -O libevent-2.1.8-stable.tar.gz
-tar -xvzf libevent-2.1.8-stable.tar.gz
-pushd libevent-2.1.8-stable
-sudo apt install make libtool automake
-./configure # obtained from archive, not git, so no need to execute autogen.sh before ./configure
-make
-make verify # FAILS (missing time server it seems)
-sudo make install
-popd
+sudo apt install libevent-dev
 
 ## OpenSSL
 sudo apt install libssl-dev
