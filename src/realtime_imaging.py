@@ -22,11 +22,9 @@ stream.EASY_DSP_WSAUDIO_SERVER_PORT = 7321
 stream.EASY_DSP_WSCONFIG_SERVER_PORT = 7322
 stream.sample_rate = EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
 stream.channel_count = EASY_DSP_NUM_CHANNELS
-stream.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // (
-EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
+stream.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // \
+                     (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
 stream.volume = EASY_DSP_VOLUME
-
-
 ########################################################################################################################
 
 def printProgress(extraInfo=None):

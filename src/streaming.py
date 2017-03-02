@@ -15,9 +15,7 @@ audio_buffer = None  # buffer containing audio samples
 callback_queue = Queue()
 (process_samples, process_config) = (None, None)  # callback functions
 
-
 ### User-callable Functions ############################################################################################
-
 def change_config(args=None):
     """
     Send the configuration variables to the microphone array.
@@ -57,7 +55,6 @@ def loop_callbacks():
         (func, args) = callback_queue.get()
         func(*args)
         callback_queue.task_done()
-
 
 ########################################################################################################################
 
