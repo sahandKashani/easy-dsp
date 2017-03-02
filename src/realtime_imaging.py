@@ -1,7 +1,7 @@
 import datetime
 import sys
 
-import browserinterface as bi
+from src import streaming as stream
 
 ### Pyramic Configuration: these must be kept in sync with browser-config.h ############################################
 EASY_DSP_VOLUME = 100
@@ -16,14 +16,15 @@ EASY_DSP_AUDIO_BUFFER_SIZE_BYTES = int((EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_F
 EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES // EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
 ########################################################################################################################
 
-### browserinterface.py Settings #######################################################################################
-bi.EASY_DSP_BOARD_IP_ADDRESS = '10.42.0.2'
-bi.EASY_DSP_WSAUDIO_SERVER_PORT = 7321
-bi.EASY_DSP_WSCONFIG_SERVER_PORT = 7322
-bi.sample_rate = EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
-bi.channel_count = EASY_DSP_NUM_CHANNELS
-bi.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
-bi.volume = EASY_DSP_VOLUME
+### streaming.py Settings #######################################################################################
+stream.EASY_DSP_BOARD_IP_ADDRESS = '10.42.0.2'
+stream.EASY_DSP_WSAUDIO_SERVER_PORT = 7321
+stream.EASY_DSP_WSCONFIG_SERVER_PORT = 7322
+stream.sample_rate = EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
+stream.channel_count = EASY_DSP_NUM_CHANNELS
+stream.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // (
+EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
+stream.volume = EASY_DSP_VOLUME
 
 
 ########################################################################################################################
@@ -63,17 +64,17 @@ def handle_samples(buffer):
 
 def handle_config(args=None):
     printProgress(
-        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=bi.frame_count,
-                                                                                           sampleRate=bi.sample_rate,
-                                                                                           channelCount=bi.channel_count,
-                                                                                           volume=bi.volume))
+        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=stream.frame_count,
+                                                                                           sampleRate=stream.sample_rate,
+                                                                                           channelCount=stream.channel_count,
+                                                                                           volume=stream.volume))
 
 
 ########################################################################################################################
 
 if __name__ == '__main__':
-    bi.change_config()
-    bi.process_samples = handle_samples
-    bi.process_config = handle_config
-    bi.start()
-    bi.loop_callbacks()
+    stream.change_config()
+    stream.process_samples = handle_samples
+    stream.process_config = handle_config
+    stream.start()
+    stream.loop_callbacks()
