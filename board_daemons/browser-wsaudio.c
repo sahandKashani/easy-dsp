@@ -73,13 +73,13 @@ int main(void) {
     printf("Connected.\n");
 
     struct ws_client* c;
-    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
+    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
 
     uint32_t buffer_count = 0;
     while (true) {
-        // Wait until we receive EASY_DSP_AUDIO_BUFFER_SIZE_BYTES bytes in total.
+        // Wait until we receive EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES bytes in total.
         int32_t msg_len_bytes = 0;
-        int32_t bytes_left_to_receive = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES;
+        int32_t bytes_left_to_receive = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES;
         do {
             void *dst = ((uint8_t *) buffer) + msg_len_bytes;
 
@@ -104,7 +104,7 @@ int main(void) {
 
         for (c = ws_clients; c != NULL; c = c->next) {
             gettimeofday(&t1, NULL);
-            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
+            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
             gettimeofday(&t2, NULL);
             print_elapsed_time(t1,t2);
             if (re == -1) {
@@ -121,7 +121,7 @@ int main(void) {
         // // debug write to file
         // FILE *pFile = fopen("/var/easy-dsp/garbage.bin","a");
         // if (pFile){
-        //     fwrite(buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES, 1, pFile);
+        //     fwrite(buffer, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES, 1, pFile);
         //     puts("Wrote to file!");
         // }
         // else{
@@ -161,8 +161,8 @@ void *send_config(libwebsock_client_state *state) {
 
     sprintf(conf,
             "{\"buffer_frames\":%d,\"rate\":%d,\"channels\":%d,\"volume\":%d}",
-            EASY_DSP_AUDIO_BUFFER_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
-            EASY_DSP_AUDIO_FREQ_HZ,
+            EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
+            EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR,
             EASY_DSP_NUM_CHANNELS,
             EASY_DSP_VOLUME);
 

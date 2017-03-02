@@ -33,19 +33,24 @@ def printProgress(extraInfo=None):
 # These must be kept in sync with browser-config.h
 bi.inform_browser = False
 bi.board_ip = '10.42.0.2'
-bi.rate = 48000
+easy_dsp_audio_downsample_factor = 3
+bi.rate = 48000 / easy_dsp_audio_downsample_factor
 bi.channels = 48
 easy_dsp_audio_buffer_length_ms = 200
 bi.buffer_frames = int(bi.rate * (easy_dsp_audio_buffer_length_ms / 1000.0))
 bi.volume = 100
 
-
-# bi.change_config(rate=bi.rate, channels=bi.channels, buffer_frames=bi.buffer_frames, volume=bi.volume)
+bi.change_config(rate=bi.rate, channels=bi.channels, buffer_frames=bi.buffer_frames, volume=bi.volume)
 
 
 ### Define Callbacks ###########################################################
 def handle_buffer(buffer):
-    printProgress("handle_buffer: received {count} bytes".format(count=len(buffer)))
+    printProgress(
+        "handle_buffer: received {count} bytes | shape {shape} | type {dtype} | (first,last) -> ({first},{last})".format(
+            count=buffer.nbytes,
+            shape=buffer.shape,
+            dtype=buffer.dtype,
+            first=buffer[0, 0], last=buffer[-1, -1]))
 
 
 def handle_config(buffer_frames, rate, channels, volume):
