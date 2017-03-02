@@ -1,3 +1,14 @@
+# ######################################################################################################################
+# streaming.py
+# ============
+# Streaming module to get live samples from the Pyramic. This must be used in conjunction with the board_daemons/ programs.
+# This file is based on the original variant from easy-dsp, but with much of the unneeded parts removed and optimized.
+#
+# Author        : Sepand KASHANI [sep@zurich.ibm.com]
+# Revision      : 1.0
+# Last modified : 2017.03.03
+# ######################################################################################################################
+
 import json
 from queue import Queue
 from threading import Thread

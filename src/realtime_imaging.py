@@ -1,3 +1,13 @@
+# ######################################################################################################################
+# realtime_imaging.py
+# ===================
+# Read an audio stream from the Pyramic and produce BlueBild images in real-time.
+#
+# Author        : Sepand KASHANI [sep@zurich.ibm.com]
+# Revision      : 1.0
+# Last modified : 2017.03.03
+# ######################################################################################################################
+
 import datetime
 import sys
 
