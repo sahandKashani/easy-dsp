@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <pyramicio.h>
@@ -66,12 +67,6 @@ int main (int argc, char *argv[]) {
   exit(EXIT_SUCCESS);
 }
 
-void print_elapsed_time(struct timeval t1, struct timeval t2) {
-    double elapsed_time = (t2.tv_sec - t1.tv_sec) * 1000.0; // sec to ms
-    elapsed_time += (t2.tv_usec - t1.tv_usec) / 1000.0;
-    fprintf(stdout, "elapsed_time = %f ms\n", elapsed_time);
-}
-
 void *handle_audio(void *nothing) {
     void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
@@ -99,6 +94,10 @@ void *handle_audio(void *nothing) {
     uint8_t buffer_id_write = pyramicGetCurrentBufferHalf(p) - 1; // returns 0 or 1 (after the subtraction).
     uint8_t buffer_id_read = !buffer_id_write;
 
+    uint16_t *dummy_samples = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
+    assert(dummy_samples != NULL);
+    uint32_t k = 0;
+
     while (true) {
         // Wait until write buffer is completely filled.
         while(pyramicGetCurrentBufferHalf(p) - 1 == buffer_id_write) {
@@ -116,19 +115,24 @@ void *handle_audio(void *nothing) {
         struct client *c = clients;
         struct client *previous = NULL;
 
-        while (c != NULL) {
-            ssize_t re = write((*c).addr, ib.samples, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
+        for(uint32_t i = 0; i < EASY_DSP_AUDIO_BUFFER_SIZE_BYTES / 2; ++i) {
+            *(dummy_samples+i) = i+k;
+        }
+        ++k;
 
+
+        while (c != NULL) {
+            ssize_t re = write(c->addr, ib.samples, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
             if (re == -1) {
                 // This client is gone, so we remove it.
                 if (previous == NULL) { // First client
-                    clients = (*c).next;
+                    clients = c->next;
                 } else {
-                    (*previous).next = (*c).next;
+                    previous->next = c->next;
                 }
             }
             previous = c;
-            c = (*c).next;
+            c = c->next;
         }
     }
 
@@ -179,8 +183,8 @@ void *handle_connections_audio(void *nothing) {
 
         fprintf(stdout, "Added new client to list of audio clients\n");
         struct client* new_client = malloc(sizeof(struct client));
-        (*new_client).addr = s2;
-        (*new_client).next = clients;
+        new_client->addr = s2;
+        new_client->next = clients;
         clients = new_client;
     }
 }

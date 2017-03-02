@@ -7,6 +7,7 @@
 #include <websock/websock.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
 #include <unistd.h>
 #include "browser-config.h"
 
@@ -27,6 +28,14 @@ struct ws_client {
 
 struct ws_client* ws_clients;
 pthread_mutex_t ws_client_lock;
+
+void print_elapsed_time(struct timeval t1, struct timeval t2) {
+    double elapsed_time = (t2.tv_sec - t1.tv_sec) * 1000.0; // sec to ms
+    elapsed_time += (t2.tv_usec - t1.tv_usec) / 1000.0;
+    fprintf(stdout, "elapsed_time = %f ms\n", elapsed_time);
+}
+
+struct timeval t1, t2;
 
 int main(void) {
     ws_clients = NULL;
@@ -66,6 +75,7 @@ int main(void) {
     struct ws_client* c;
     void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
+    uint32_t buffer_count = 0;
     while (true) {
         // Wait until we receive EASY_DSP_AUDIO_BUFFER_SIZE_BYTES bytes in total.
         int32_t msg_len_bytes = 0;
@@ -85,12 +95,18 @@ int main(void) {
             }
         } while (bytes_left_to_receive > 0);
 
+        buffer_count += 1;
+        fprintf(stdout, "Wrote %" PRIu32 " buffers\n", buffer_count);
+
         // Send complete buffer to clients.
         struct ws_client* previous = NULL;
         pthread_mutex_lock(&ws_client_lock);
 
         for (c = ws_clients; c != NULL; c = c->next) {
+            gettimeofday(&t1, NULL);
             int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
+            gettimeofday(&t2, NULL);
+            print_elapsed_time(t1,t2);
             if (re == -1) {
                 if (previous == NULL) {
                     ws_clients = c->next;
