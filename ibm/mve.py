@@ -1,10 +1,32 @@
-from __future__ import print_function, division
-
 import datetime
 import sys
 
 import browserinterface as bi
 
+### Pyramic Configuration: these must be kept in sync with browser-config.h ############################################
+EASY_DSP_VOLUME = 100
+EASY_DSP_NUM_CHANNELS = 48
+EASY_DSP_AUDIO_FREQ_HZ = 48000
+EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR = 3
+EASY_DSP_AUDIO_FORMAT_BITS = 16
+EASY_DSP_AUDIO_FORMAT_BYTES = EASY_DSP_AUDIO_FORMAT_BITS // 8
+EASY_DSP_AUDIO_BUFFER_LENGTH_MS = 200
+EASY_DSP_AUDIO_BUFFER_SIZE_BYTES = int((EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FREQ_HZ * EASY_DSP_AUDIO_FORMAT_BYTES * \
+                                        (EASY_DSP_AUDIO_BUFFER_LENGTH_MS / 1000.0)))
+EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES // EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
+########################################################################################################################
+
+### browserinterface.py Settings #######################################################################################
+bi.EASY_DSP_BOARD_IP_ADDRESS = '10.42.0.2'
+bi.EASY_DSP_WSAUDIO_SERVER_PORT = 7321
+bi.EASY_DSP_WSCONFIG_SERVER_PORT = 7322
+bi.sample_rate = EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
+bi.channel_count = EASY_DSP_NUM_CHANNELS
+bi.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
+bi.volume = EASY_DSP_VOLUME
+
+
+########################################################################################################################
 
 def printProgress(extraInfo=None):
     """
@@ -29,22 +51,8 @@ def printProgress(extraInfo=None):
     print(info)
 
 
-### Settings ###################################################################
-# These must be kept in sync with browser-config.h
-bi.inform_browser = False
-bi.board_ip = '10.42.0.2'
-easy_dsp_audio_downsample_factor = 3
-bi.rate = 48000 / easy_dsp_audio_downsample_factor
-bi.channels = 48
-easy_dsp_audio_buffer_length_ms = 200
-bi.buffer_frames = int(bi.rate * (easy_dsp_audio_buffer_length_ms / 1000.0))
-bi.volume = 100
-
-bi.change_config(rate=bi.rate, channels=bi.channels, buffer_frames=bi.buffer_frames, volume=bi.volume)
-
-
-### Define Callbacks ###########################################################
-def handle_buffer(buffer):
+### Define Callbacks ###################################################################################################
+def handle_samples(buffer):
     printProgress(
         "handle_buffer: received {count} bytes | shape {shape} | type {dtype} | (first,last) -> ({first},{last})".format(
             count=buffer.nbytes,
@@ -53,25 +61,19 @@ def handle_buffer(buffer):
             first=buffer[0, 0], last=buffer[-1, -1]))
 
 
-def handle_config(buffer_frames, rate, channels, volume):
+def handle_config(args=None):
     printProgress(
-        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=buffer_frames,
-                                                                                           sampleRate=rate,
-                                                                                           channelCount=channels,
-                                                                                           volume=volume))
+        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=bi.frame_count,
+                                                                                           sampleRate=bi.sample_rate,
+                                                                                           channelCount=bi.channel_count,
+                                                                                           volume=bi.volume))
 
 
-def handle_recording(buffer):
-    printProgress("handle_recording: {count} samples have been recorded".format(count=len(buffer)))
+########################################################################################################################
 
-
-# ### Record Audio ###############################################################
-# browserinterface.record_audio(5000, handle_recording)
-
-### Register Handles ###########################################################
-bi.register_handle_data(handle_buffer)
-bi.register_when_new_config(handle_config)
-
-### Start Communication ########################################################
-bi.start()
-bi.loop_callbacks()
+if __name__ == '__main__':
+    bi.change_config()
+    bi.process_samples = handle_samples
+    bi.process_config = handle_config
+    bi.start()
+    bi.loop_callbacks()
