@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Wall -Wextra -O0 -std=gnu99
+CFLAGS = -g -Wall -Wextra -O2 -std=gnu99
 
 default: all
 
