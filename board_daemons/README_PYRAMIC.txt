@@ -21,8 +21,8 @@ make -C pyramic_mic2wav
 ################################################################################
 
 ## Very first boot (pyramic never switched on before)
-# Use minicom to login with user "ibm", password "1234"
-sudo /config_post_install.sh
+# Use minicom to login with user "root", password "1234"
+/config_post_install.sh
 # Restart the pyramic
 
 ################################################################################
@@ -31,39 +31,38 @@ sudo /config_post_install.sh
 
 cd Pyramic/fpga/MIC_ARRAY/sw/hps/application/pyramicio
 scp libpyramicio.so root@pyramic:/usr/local/lib
-scp pyramic.h       root@pyramic:/usr/local/include
+scp pyramicio.h     root@pyramic:/usr/local/include
 
 ################################################################################
 # On pyramic (AFTER first boot)
 ################################################################################
 
 ## SSH into pyramic
-# ssh ibm@10.42.0.2
+# ssh root@10.42.0.2
 
 ## ~/.bashrc
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}":/usr/local/lib
 
 ## Apache and PHP
-sudo apt install apache2 libapache2-mod-php5 php5 php5-common
-
+apt install apache2 libapache2-mod-php5 php5 php5-common
 
 ## Install more stuff related to system:
-sudo apt install sshfs valgrind ethtool
+apt install sshfs valgrind ethtool
 
 ## libevent
-sudo apt install libevent-dev libevent-openssl-2.0.5
+apt install libevent-dev libevent-openssl-2.0.5
 
 ## OpenSSL
-sudo apt install libssl-dev
+apt install libssl-dev
 
 ## libwebsock
-sudo apt install git
+apt install git
 git clone git://github.com/payden/libwebsock.git
 pushd libwebsock
 ./autogen.sh # cloned from git, so need to execute autogen.sh before ./configure
 ./configure
 make
-sudo make install
+make install
 popd
 
 ## Jansson
@@ -71,7 +70,7 @@ wget http://www.digip.org/jansson/releases/jansson-2.9.tar.gz -O jansson-2.9.tar
 tar -xvzf jansson-2.9.tar.gz
 ./configure
 make
-sudo make install
+make install
 pushd jansson-2.9
 
 ################################################################################
@@ -79,16 +78,16 @@ pushd jansson-2.9
 ################################################################################
 
 cd /var
-sudo git clone git@github.com:sahandKashani/easy-dsp.git
+git clone git@github.com:sahandKashani/easy-dsp.git
 cd easy-dsp
-sudo touch logs.txt
-sudo chown www-data:www-data logs.txt
-sudo cp microphones.virtualhost /etc/apache2/sites-available/microphones.conf # Attention: a2ensite is simply a perl script that only works with filenames ending ".conf" !
-sudo a2ensite microphones
-sudo echo "Listen 8081" | sudo tee -a /etc/apache2/ports.conf > /dev/null
-sudo usermod -aG audio www-data
+touch logs.txt
+chown www-data:www-data logs.txt
+cp microphones.virtualhost /etc/apache2/sites-available/microphones.conf # Attention: a2ensite is simply a perl script that only works with filenames ending ".conf" !
+a2ensite microphones
+echo "Listen 8081" | tee -a /etc/apache2/ports.conf > /dev/null
+usermod -aG audio www-data
 ## not needed since no sound drivers are installed on pyramic
-# sudo apt install acl
-# sudo setfacl -m u:www-data:rw /dev/snd/*
-# sudo rm /tmp/micros-audio.socket /tmp/micros-control.socket # doesn't exist on first install, maybe if reinstalling later.
-sudo service apache2 restart
+# apt install acl
+# setfacl -m u:www-data:rw /dev/snd/*
+# rm /tmp/micros-audio.socket /tmp/micros-control.socket # doesn't exist on first install, maybe if reinstalling later.
+service apache2 restart
