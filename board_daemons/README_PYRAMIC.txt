@@ -67,6 +67,7 @@ apt install libssl-dev
 apt install git
 git clone git://github.com/payden/libwebsock.git
 pushd libwebsock
+apt install automake libtool make
 ./autogen.sh # cloned from git, so need to execute autogen.sh before ./configure
 ./configure
 make
