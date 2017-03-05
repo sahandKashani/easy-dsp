@@ -94,17 +94,13 @@ void *handle_audio(void *nothing) {
     uint8_t buffer_id_write = pyramicGetCurrentBufferHalf(p) - 1; // returns 0 or 1 (after the subtraction).
     uint8_t buffer_id_read = !buffer_id_write;
 
-    uint16_t *dummy_samples = malloc(EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
-    assert(dummy_samples != NULL);
-    uint32_t k = 0;
-
     while (true) {
         // Wait until write buffer is completely filled.
         while(pyramicGetCurrentBufferHalf(p) - 1 == buffer_id_write) {
             usleep(SLEEP_DURATION_US);
         }
 
-        // swap write and read buffers
+        // Swap write and read buffers
         buffer_id_write = !buffer_id_write;
         buffer_id_read = !buffer_id_read;
 
@@ -115,16 +111,8 @@ void *handle_audio(void *nothing) {
         struct client *c = clients;
         struct client *previous = NULL;
 
-        // Writing Bogus sequence to downsampled buffer
-        for(uint32_t i = 0; i < EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES / 2; ++i) {
-            *(dummy_samples+i) = i+k;
-        }
-        ++k;
-
-
         while (c != NULL) {
-            // ssize_t re = write(c->addr, ib.samples, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
-            ssize_t re = write(c->addr, dummy_samples, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
+            ssize_t re = write(c->addr, ib.samples, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
             if (re == -1) {
                 // This client is gone, so we remove it.
                 if (previous == NULL) { // First client

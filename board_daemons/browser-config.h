@@ -12,15 +12,13 @@
 #define EASY_DSP_WSCONFIG_SERVER_PORT "7322"
 
 // Audio configuration
-#define EASY_DSP_VOLUME                              (100)
-#define EASY_DSP_NUM_CHANNELS                        (48)
-#define EASY_DSP_AUDIO_FREQ_HZ                       (48000)
-#define EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR             (3)
-#define EASY_DSP_AUDIO_FORMAT_BITS                   (16)
-#define EASY_DSP_AUDIO_FORMAT_BYTES                  (EASY_DSP_AUDIO_FORMAT_BITS / 8)
-#define EASY_DSP_AUDIO_BUFFER_LENGTH_MS              (200)
-#define EASY_DSP_AUDIO_BUFFER_SIZE_BYTES             ((uint32_t) (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FREQ_HZ * EASY_DSP_AUDIO_FORMAT_BYTES * (EASY_DSP_AUDIO_BUFFER_LENGTH_MS / 1000.0)))
-#define EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES ((uint32_t) (EASY_DSP_AUDIO_BUFFER_SIZE_BYTES / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR))
+#define EASY_DSP_VOLUME                  (100)
+#define EASY_DSP_NUM_CHANNELS            (48)
+#define EASY_DSP_AUDIO_FREQ_HZ           (48000)
+#define EASY_DSP_AUDIO_FORMAT_BITS       (16)
+#define EASY_DSP_AUDIO_FORMAT_BYTES      (EASY_DSP_AUDIO_FORMAT_BITS / 8)
+#define EASY_DSP_AUDIO_BUFFER_LENGTH_MS  (200)
+#define EASY_DSP_AUDIO_BUFFER_SIZE_BYTES ((uint32_t) (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FREQ_HZ * EASY_DSP_AUDIO_FORMAT_BYTES * (EASY_DSP_AUDIO_BUFFER_LENGTH_MS / 1000.0)))
 
 // In order to guarantee a continuous stream of audio samples, it is important
 // to limit the maximum number of clients such that the total time to send the

@@ -17,23 +17,20 @@ from src import streaming as stream
 EASY_DSP_VOLUME = 100
 EASY_DSP_NUM_CHANNELS = 48
 EASY_DSP_AUDIO_FREQ_HZ = 48000
-EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR = 3
 EASY_DSP_AUDIO_FORMAT_BITS = 16
 EASY_DSP_AUDIO_FORMAT_BYTES = EASY_DSP_AUDIO_FORMAT_BITS // 8
 EASY_DSP_AUDIO_BUFFER_LENGTH_MS = 200
 EASY_DSP_AUDIO_BUFFER_SIZE_BYTES = int((EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FREQ_HZ * EASY_DSP_AUDIO_FORMAT_BYTES * \
                                         (EASY_DSP_AUDIO_BUFFER_LENGTH_MS / 1000.0)))
-EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES // EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
 ########################################################################################################################
 
-### streaming.py Settings #######################################################################################
+### streaming.py Settings ##############################################################################################
 stream.EASY_DSP_BOARD_IP_ADDRESS = '10.42.0.2'
 stream.EASY_DSP_WSAUDIO_SERVER_PORT = 7321
 stream.EASY_DSP_WSCONFIG_SERVER_PORT = 7322
-stream.sample_rate = EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR
+stream.sample_rate = EASY_DSP_AUDIO_FREQ_HZ
 stream.channel_count = EASY_DSP_NUM_CHANNELS
-stream.frame_count = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES // \
-                     (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
+stream.frame_count = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES // (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES)
 stream.volume = EASY_DSP_VOLUME
 ########################################################################################################################
 
@@ -76,7 +73,6 @@ def handle_config(args=None):
                                                                                            sampleRate=stream.sample_rate,
                                                                                            channelCount=stream.channel_count,
                                                                                            volume=stream.volume))
-
 
 ########################################################################################################################
 

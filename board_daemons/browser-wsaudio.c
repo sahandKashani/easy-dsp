@@ -29,14 +29,6 @@ struct ws_client {
 struct ws_client* ws_clients;
 pthread_mutex_t ws_client_lock;
 
-void print_elapsed_time(struct timeval t1, struct timeval t2) {
-    double elapsed_time = (t2.tv_sec - t1.tv_sec) * 1000.0; // sec to ms
-    elapsed_time += (t2.tv_usec - t1.tv_usec) / 1000.0;
-    fprintf(stdout, "elapsed_time = %f ms\n", elapsed_time);
-}
-
-struct timeval t1, t2;
-
 int main(void) {
     ws_clients = NULL;
 
@@ -73,13 +65,12 @@ int main(void) {
     printf("Connected.\n");
 
     struct ws_client* c;
-    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
+    void *buffer = malloc(EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
 
-    uint32_t buffer_count = 0;
     while (true) {
-        // Wait until we receive EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES bytes in total.
+        // Wait until we receive EASY_DSP_AUDIO_BUFFER_SIZE_BYTES bytes in total.
         int32_t msg_len_bytes = 0;
-        int32_t bytes_left_to_receive = EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES;
+        int32_t bytes_left_to_receive = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES;
         do {
             void *dst = ((uint8_t *) buffer) + msg_len_bytes;
 
@@ -95,18 +86,12 @@ int main(void) {
             }
         } while (bytes_left_to_receive > 0);
 
-        buffer_count += 1;
-        fprintf(stdout, "Wrote %" PRIu32 " buffers\n", buffer_count);
-
         // Send complete buffer to clients.
         struct ws_client* previous = NULL;
         pthread_mutex_lock(&ws_client_lock);
 
         for (c = ws_clients; c != NULL; c = c->next) {
-            gettimeofday(&t1, NULL);
-            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES);
-            gettimeofday(&t2, NULL);
-            print_elapsed_time(t1,t2);
+            int re = libwebsock_send_binary(c->c, buffer, EASY_DSP_AUDIO_BUFFER_SIZE_BYTES);
             if (re == -1) {
                 if (previous == NULL) {
                     ws_clients = c->next;
@@ -117,17 +102,6 @@ int main(void) {
                 previous = c;
             }
         }
-
-        // // debug write to file
-        // FILE *pFile = fopen("/var/easy-dsp/garbage.bin","a");
-        // if (pFile){
-        //     fwrite(buffer, EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES, 1, pFile);
-        //     puts("Wrote to file!");
-        // }
-        // else{
-        //     puts("Something wrong writing to File.");
-        // }
-        // fclose(pFile);
 
         pthread_mutex_unlock(&ws_client_lock);
     }
@@ -141,7 +115,7 @@ int onmessage(libwebsock_client_state *state, libwebsock_message *msg) {
     fprintf(stdout, "Payload Length: %llu\n", msg->payload_len);
     fprintf(stdout, "Payload: %s\n", msg->payload);
 
-    //now let's send it back.
+    // Now let's send it back.
     libwebsock_send_text(state, msg->payload);
 
     return 0;
@@ -161,8 +135,8 @@ void *send_config(libwebsock_client_state *state) {
 
     sprintf(conf,
             "{\"buffer_frames\":%d,\"rate\":%d,\"channels\":%d,\"volume\":%d}",
-            EASY_DSP_AUDIO_BUFFER_DOWNSAMPLED_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
-            EASY_DSP_AUDIO_FREQ_HZ / EASY_DSP_AUDIO_DOWNSAMPLE_FACTOR,
+            EASY_DSP_AUDIO_BUFFER_SIZE_BYTES / (EASY_DSP_NUM_CHANNELS * EASY_DSP_AUDIO_FORMAT_BYTES),
+            EASY_DSP_AUDIO_FREQ_HZ,
             EASY_DSP_NUM_CHANNELS,
             EASY_DSP_VOLUME);
 
