@@ -86,21 +86,22 @@ class StreamClient(WebSocketClient):
                 callback_queue.put((process_config, (None,)))
 
         else:  # new audio data
-            # We convert the binary stream into a 2D Numpy array of 16-bits integers
-            data = bytearray()
-            data.extend(message.data)
-            i_frame = 0
-            i_channel = 0
+            # Raw sign-and-magnitude data
+            sign_magnitude_data = np.frombuffer(message.data, dtype=np.int16).reshape(-1, channel_count)
 
-            for i in range(len(data) // 2):  # we work with 16 bits = 2 bytes
-                if data[2 * i + 1] <= 127:
-                    audio_buffer[i_frame][i_channel] = data[2 * i] + 256 * data[2 * i + 1]
-                else:
-                    audio_buffer[i_frame][i_channel] = (data[2 * i + 1] - 128) * 256 + data[2 * i] - 32768
-                i_channel += 1
-                if (i % channel_count) == (channel_count - 1):
-                    i_channel = 0
-                    i_frame += 1
+            # Extract (sign,magnitude) pairs
+            sign_mask = np.array([1 << 15], dtype=np.int16)
+            magnitude_mask = np.bitwise_not(sign_mask)
+            (negative_sign, magnitude) = (np.bitwise_and(sign_mask, sign_magnitude_data) != 0,
+                                          np.bitwise_and(magnitude_mask, sign_magnitude_data))
+
+            # Reconstruct raw data in two's complement format
+            twos_complement_data = np.zeros_like(sign_magnitude_data)
+            np.power(-1, negative_sign,
+                     out=twos_complement_data)  # use 'out=twos_complement_data' to guarantee the result stays on 16 bits.
+            twos_complement_data *= magnitude
+
+            audio_buffer = twos_complement_data
 
             if process_samples:
                 callback_queue.put((process_samples, (audio_buffer,)))
