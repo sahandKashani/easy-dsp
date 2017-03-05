@@ -77,10 +77,11 @@ popd
 ## Jansson
 wget http://www.digip.org/jansson/releases/jansson-2.9.tar.gz -O jansson-2.9.tar.gz
 tar -xvzf jansson-2.9.tar.gz
+pushd jansson-2.9
 ./configure
 make
 make install
-pushd jansson-2.9
+popd
 
 ################################################################################
 # On pyramic (AFTER first boot, easy-dsp configuration)
@@ -88,15 +89,12 @@ pushd jansson-2.9
 
 cd /var
 git clone git@github.com:sahandKashani/easy-dsp.git
-cd easy-dsp
-touch logs.txt
-chown www-data:www-data logs.txt
-cp microphones.virtualhost /etc/apache2/sites-available/microphones.conf # Attention: a2ensite is simply a perl script that only works with filenames ending ".conf" !
+pushd easy-dsp
+touch board_daemons/logs.txt
+chown www-data:www-data board_daemons/logs.txt
+cp microphones.virtualhost /etc/apache2/sites-available/microphones.conf
 a2ensite microphones
 echo "Listen 8081" | tee -a /etc/apache2/ports.conf > /dev/null
 usermod -aG audio www-data
-## not needed since no sound drivers are installed on pyramic
-# apt install acl
-# setfacl -m u:www-data:rw /dev/snd/*
-# rm /tmp/micros-audio.socket /tmp/micros-control.socket # doesn't exist on first install, maybe if reinstalling later.
 service apache2 restart
+popd
