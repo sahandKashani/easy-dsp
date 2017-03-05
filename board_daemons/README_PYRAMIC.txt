@@ -40,8 +40,16 @@ scp pyramicio.h     root@pyramic:/usr/local/include
 ## SSH into pyramic
 # ssh root@10.42.0.2
 
-## ~/.bashrc
+### ~/.bashrc
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}":/usr/local/lib
+## locale
+export LC_ALL="en_US.UTF-8"
+## Unlimited bash history
+export HISTCONTROL=ignoredups:erasedups
+export HISTSIZE=
+export HISTFILESIZE=
+shopt -s histappend
+export PROMPT_COMMAND="history -a; history -c; history -r; ${PROMPT_COMMAND}"
 
 ## Apache and PHP
 apt install apache2 libapache2-mod-php5 php5 php5-common
