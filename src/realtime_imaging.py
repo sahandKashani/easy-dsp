@@ -34,60 +34,13 @@ stream.frame_count = EASY_DSP_AUDIO_BUFFER_SIZE_BYTES // (EASY_DSP_NUM_CHANNELS 
 stream.volume = EASY_DSP_VOLUME
 ########################################################################################################################
 
-def printProgress(extraInfo=None):
-    """
-    Print to sys.stdout the name of the calling function along with a timestamp.
-    If extraInfo is given, then replace the calling function name with extraInfo.
-
-    :param extraInfo: string of user information
-    """
-    dt = datetime.datetime.now()
-    if extraInfo:
-        info = '{year:=04d}-{month:=02d}-{day:=02d}/{hour:02d}:{minute:=02d}:{second:=02d}  {info}'.format(
-            year=dt.year, month=dt.month, day=dt.day,
-            hour=dt.hour, minute=dt.minute, second=dt.second,
-            info=extraInfo
-        )
-    else:
-        info = '{year:=04d}-{month:=02d}-{day:=02d}/{hour:02d}:{minute:=02d}:{second:=02d}  {function}'.format(
-            year=dt.year, month=dt.month, day=dt.day,
-            hour=dt.hour, minute=dt.minute, second=dt.second,
-            function=sys._getframe(1).f_code.co_name
-        )
-    print(info)
-
-
-buffers = []
-i = 0
-
 ### Define Callbacks ###################################################################################################
 def handle_samples(buffer):
-    printProgress(
-        "handle_buffer: received {count} bytes | shape {shape} | type {dtype} | (first,last) -> ({first},{last})".format(
-            count=buffer.nbytes,
-            shape=buffer.shape,
-            dtype=buffer.dtype,
-            first=buffer[0, 0], last=buffer[-1, -1]))
-
-    global buffers, i
-    buffers = buffers + [buffer]
-    i += 1
-
-    if i > 50:
-        import numpy as np
-        from scipy.io import wavfile
-        import sys
-        buffers = np.concatenate(buffers,axis=0)
-        wavfile.write('/home/sep/Desktop/audio.wav',48000,buffers)
-        sys.exit()
+    pass
 
 
 def handle_config(args=None):
-    printProgress(
-        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=stream.frame_count,
-                                                                                           sampleRate=stream.sample_rate,
-                                                                                           channelCount=stream.channel_count,
-                                                                                           volume=stream.volume))
+    pass
 
 ########################################################################################################################
 
