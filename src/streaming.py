@@ -26,6 +26,7 @@ audio_buffer = None  # buffer containing audio samples
 callback_queue = Queue()
 (process_samples, process_config) = (None, None)  # callback functions
 
+
 ### User-callable Functions ############################################################################################
 def change_config(args=None):
     """
@@ -67,6 +68,7 @@ def loop_callbacks():
         func(*args)
         callback_queue.task_done()
 
+
 ########################################################################################################################
 
 class StreamClient(WebSocketClient):
@@ -86,22 +88,50 @@ class StreamClient(WebSocketClient):
                 callback_queue.put((process_config, (None,)))
 
         else:  # new audio data
-            # Raw sign-and-magnitude data
-            sign_magnitude_data = np.frombuffer(message.data, dtype=np.int16).reshape(-1, channel_count)
+            # # Raw sign-and-magnitude data
+            # sign_magnitude_data = np.frombuffer(message.data, dtype=np.int16).reshape(-1, channel_count)
+            #
+            # # Extract (sign,magnitude) pairs
+            # sign_mask = np.array([1 << 15], dtype=np.int16)
+            # magnitude_mask = np.bitwise_not(sign_mask)
+            # (negative_sign, magnitude) = (np.bitwise_and(sign_mask, sign_magnitude_data) != 0,
+            #                               np.bitwise_and(magnitude_mask, sign_magnitude_data))
+            #
+            # # Reconstruct raw data in two's complement format
+            # twos_complement_data = np.zeros_like(sign_magnitude_data)
+            # np.power(-1, negative_sign,
+            #          out=twos_complement_data)  # use 'out=twos_complement_data' to guarantee the result stays on 16 bits.
+            # twos_complement_data *= magnitude
+            #
+            # audio_buffer = twos_complement_data
 
-            # Extract (sign,magnitude) pairs
-            sign_mask = np.array([1 << 15], dtype=np.int16)
-            magnitude_mask = np.bitwise_not(sign_mask)
-            (negative_sign, magnitude) = (np.bitwise_and(sign_mask, sign_magnitude_data) != 0,
-                                          np.bitwise_and(magnitude_mask, sign_magnitude_data))
+            raw_data = np.frombuffer(message.data, dtype=np.uint8)
+            (lsb, msb) = (raw_data[np.r_[0:len(raw_data):2]].astype(np.int16),
+                          raw_data[np.r_[1:len(raw_data):2]].astype(np.int16))
+            is_negative = (msb >= 128)
+            zeta = (np.bitwise_and(msb, 0x7F) << 8) + lsb
+            zeta[is_negative] -= 2 ** 15
 
-            # Reconstruct raw data in two's complement format
-            twos_complement_data = np.zeros_like(sign_magnitude_data)
-            np.power(-1, negative_sign,
-                     out=twos_complement_data)  # use 'out=twos_complement_data' to guarantee the result stays on 16 bits.
-            twos_complement_data *= magnitude
+            zeta = zeta.reshape(-1, channel_count)
 
-            audio_buffer = twos_complement_data
+            audio_buffer = zeta
+
+            # data = bytearray()
+            # data.extend(message.data)
+            # i_frame = 0
+            # i_channel = 0
+            #
+            # for i in range(len(data) // 2):  # we work with 16 bits = 2 bytes
+            #     if data[2 * i + 1] <= 127:
+            #         audio_buffer[i_frame][i_channel] = data[2 * i] + 256 * data[2 * i + 1]
+            #     else:
+            #         audio_buffer[i_frame][i_channel] = (data[2 * i + 1] - 128) * 256 + data[2 * i] - 32768
+            #     i_channel += 1
+            #     if (i % channel_count) == (channel_count - 1):
+            #         i_channel = 0
+            #         i_frame += 1
+            #
+            # print(np.all(zeta == audio_buffer))
 
             if process_samples:
                 callback_queue.put((process_samples, (audio_buffer,)))

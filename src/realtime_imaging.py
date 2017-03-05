@@ -57,6 +57,9 @@ def printProgress(extraInfo=None):
     print(info)
 
 
+buffers = []
+i = 0
+
 ### Define Callbacks ###################################################################################################
 def handle_samples(buffer):
     printProgress(
@@ -65,6 +68,18 @@ def handle_samples(buffer):
             shape=buffer.shape,
             dtype=buffer.dtype,
             first=buffer[0, 0], last=buffer[-1, -1]))
+
+    global buffers, i
+    buffers = buffers + [buffer]
+    i += 1
+
+    if i > 50:
+        import numpy as np
+        from scipy.io import wavfile
+        import sys
+        buffers = np.concatenate(buffers,axis=0)
+        wavfile.write('/home/sep/Desktop/audio.wav',48000,buffers)
+        sys.exit()
 
 
 def handle_config(args=None):
