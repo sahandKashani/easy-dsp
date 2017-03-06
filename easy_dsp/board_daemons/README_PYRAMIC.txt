@@ -90,8 +90,8 @@ popd
 cd /var
 git clone git@github.com:sahandKashani/easy-dsp.git
 pushd easy-dsp
-touch board_daemons/logs.txt
-chown www-data:www-data board_daemons/logs.txt
+touch easy_dsp/board_daemons/logs.txt
+chown www-data:www-data easy_dsp/board_daemons/logs.txt
 cp microphones.virtualhost /etc/apache2/sites-available/microphones.conf
 a2ensite microphones
 echo "Listen 8081" | tee -a /etc/apache2/ports.conf > /dev/null

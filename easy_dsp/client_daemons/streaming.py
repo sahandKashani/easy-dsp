@@ -5,8 +5,6 @@
 # This file is based on the original variant from easy-dsp, but with much of the unneeded parts removed and optimized.
 #
 # Author        : Sepand KASHANI [sep@zurich.ibm.com]
-# Revision      : 1.0
-# Last modified : 2017.03.03
 # ######################################################################################################################
 
 import json
@@ -25,7 +23,6 @@ EASY_DSP_BOARD_IP_ADDRESS = None  # default Pyramic IP address (as a string)
 audio_buffer = None  # buffer containing audio samples
 callback_queue = Queue()
 (process_samples, process_config) = (None, None)  # callback functions
-
 
 ### User-callable Functions ############################################################################################
 def change_config(args=None):
@@ -67,7 +64,6 @@ def loop_callbacks():
         (func, args) = callback_queue.get()
         func(*args)
         callback_queue.task_done()
-
 
 ########################################################################################################################
 

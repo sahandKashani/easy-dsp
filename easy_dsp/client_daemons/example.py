@@ -1,17 +1,13 @@
 # ######################################################################################################################
-# realtime_imaging.py
-# ===================
-# Read an audio stream from the Pyramic and produce BlueBild images in real-time.
+# example.py
+# ==========
+# Minimum building block to get the audio stream from a Pyramic
 #
 # Author        : Sepand KASHANI [sep@zurich.ibm.com]
-# Revision      : 1.0
-# Last modified : 2017.03.03
 # ######################################################################################################################
 
-import datetime
-import sys
-
-from src import streaming as stream
+from easy_dsp.client_daemons import streaming as stream
+from pypeline.radioAstronomy.utils.progressMonitor import printProgress
 
 ### Pyramic Configuration: these must be kept in sync with browser-config.h ############################################
 EASY_DSP_VOLUME = 100
@@ -36,11 +32,16 @@ stream.volume = EASY_DSP_VOLUME
 
 ### Define Callbacks ###################################################################################################
 def handle_samples(buffer):
-    pass
-
+    printProgress("handle_buffer: received {count} bytes | shape {shape} | type {dtype}".format(count=buffer.nbytes,
+                                                                                                shape=buffer.shape,
+                                                                                                dtype=buffer.dtype, ))
 
 def handle_config(args=None):
-    pass
+    printProgress(
+        "handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(frames=stream.frame_count,
+                                                                                           sampleRate=stream.sample_rate,
+                                                                                           channelCount=stream.channel_count,
+                                                                                           volume=stream.volume))
 
 ########################################################################################################################
 
