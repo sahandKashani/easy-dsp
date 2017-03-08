@@ -103,6 +103,7 @@ if __name__ == '__main__':
     while len(past_buffers) != buffers_to_accumulate:
         samples = sample_queue.get()
         past_buffers += [samples]
+        sample_queue.task_done()
 
     recording = np.concatenate(past_buffers, axis=0)
     wavfile.write(args['outputFile'], EASY_DSP_AUDIO_FREQ_HZ, recording)
