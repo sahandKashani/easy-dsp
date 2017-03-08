@@ -84,15 +84,8 @@ class StreamClient(WebSocketClient):
                 callback_queue.put((process_config, (None,)))
 
         else:  # new audio data
-            # Raw sign-and-magnitude data
-            raw_data = np.frombuffer(message.data, dtype=np.uint8)
-            # Reconstruct raw data in two's complement format
-            (lsb, msb) = (raw_data[np.r_[0:len(raw_data):2]].astype(np.int16),
-                          raw_data[np.r_[1:len(raw_data):2]].astype(np.int16))
-            is_negative = (msb >= 128)
-            audio_buffer = (np.bitwise_and(msb, 0x7F) << 8) + lsb
-            audio_buffer[is_negative] -= 32768  # 2**15
-            audio_buffer = audio_buffer.reshape(-1, channel_count)
+            raw_data = np.frombuffer(message.data, dtype=np.int16)
+            audio_buffer = raw_data.reshape(-1, channel_count)
 
             if process_samples:
                 callback_queue.put((process_samples, (audio_buffer,)))
