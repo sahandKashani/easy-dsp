@@ -16,7 +16,6 @@ import numpy as np
 from scipy.io import wavfile
 
 from easy_dsp.client_daemons import streaming as stream
-from pypeline.radioAstronomy.utils.progressMonitor import printProgress
 
 ### Pyramic Configuration: these must be kept in sync with browser-config.h ############################################
 EASY_DSP_VOLUME = 100
@@ -36,8 +35,6 @@ def parseArgs():
 
     :return: dictionary of valid arguments
     """
-    printProgress()
-
     parser = argparse.ArgumentParser(
         description="""
 Record a live audio stream from the Pyramic and save it to a WAV file.
@@ -75,7 +72,7 @@ def configure_live_stream(sample_queue):
             sample_queue.put(buffer)
 
         def handle_config(args=None):
-            printProgress("handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(
+            print("handle_config: new config ({frames},{sampleRate},{channelCount},{volume})".format(
                 frames=stream.frame_count,
                 sampleRate=stream.sample_rate,
                 channelCount=stream.channel_count,
