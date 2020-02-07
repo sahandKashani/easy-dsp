@@ -4,7 +4,7 @@
 
 git clone git@github.com:sahandKashani/Pyramic.git
 cd Pyramic/fpga/MIC_ARRAY/
-./create_linux_system.sh /dev/sdX # replace /dev/sdX with you sdcard
+./create_linux_system.sh /dev/sdX # replace /dev/sdX with your sdcard
 ./create_hw_headers.sh
 cd sw/hps/application
 make -C pyramicio clean
